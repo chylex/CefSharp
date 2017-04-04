@@ -3,15 +3,80 @@
 // Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
 using System;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using CefSharp.Example;
 using System.Threading.Tasks;
 using System.Text;
+using System.Drawing;
 
 namespace CefSharp.WinForms.Example
 {
     public partial class BrowserForm : Form
     {
+
+        
+
+        public delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hInstance, int threadId);
+
+        [DllImport("user32.dll")]
+        public static extern bool UnhookWindowsHookEx(IntPtr idHook);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr CallNextHookEx(IntPtr idHook, int nCode, IntPtr wParam, IntPtr lParam);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT{
+            public int X;
+            public int Y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSLLHOOKSTRUCT{
+            public POINT pt;
+            public int mouseData;
+            public int flags;
+            public int time;
+            public UIntPtr dwExtraInfo;
+        }
+
+        public static int GetHookWheelDelta(IntPtr ptr){
+            return Marshal.PtrToStructure<MSLLHOOKSTRUCT>(ptr).mouseData >> 16;
+        }
+        
+        public const int WM_MOUSE_LL = 14;
+        public const int WM_MOUSEWHEEL = 0x020A;
+        
+        private readonly HookProc mouseHookDelegate;
+        private IntPtr mouseHook;
+        
+
+        private void StartMouseHook(){
+            if (mouseHook == IntPtr.Zero){
+                mouseHook = SetWindowsHookEx(WM_MOUSE_LL, mouseHookDelegate, IntPtr.Zero, 0);
+            }
+        }
+
+        private void StopMouseHook(){
+            if (mouseHook != IntPtr.Zero){
+                UnhookWindowsHookEx(mouseHook);
+                mouseHook = IntPtr.Zero;
+            }
+        }
+
+        private IntPtr MouseHookProc(int nCode, IntPtr wParam, IntPtr lParam){
+            if (wParam.ToInt32() == WM_MOUSEWHEEL && GetCurrentTabControl().Bounds.Contains(PointToClient(Cursor.Position)) && !ContainsFocus){
+                Point pt = PointToClient(Cursor.Position);
+                GetCurrentTabControl().Browser.SendMouseWheelEvent(pt.X, pt.Y, 0, GetHookWheelDelta(lParam), CefEventFlags.None);
+            }
+
+            return CallNextHookEx(mouseHook, nCode, wParam, lParam);
+        }
+
+
         private const string DefaultUrlForAddedTabs = "https://www.google.com";
 
         // Default to a small increment:
@@ -33,12 +98,16 @@ namespace CefSharp.WinForms.Example
             ResizeBegin += (s, e) => SuspendLayout();
             ResizeEnd += (s, e) => ResumeLayout(true);
 
+            mouseHookDelegate = MouseHookProc;
+            StartMouseHook();
+            Disposed += (sender, args) => StopMouseHook();
+
             this.multiThreadedMessageLoopEnabled = multiThreadedMessageLoopEnabled;
         }
 
         private void BrowserFormLoad(object sender, EventArgs e)
         {
-            AddTab(CefExample.DefaultUrl);
+            AddTab("https://tweetdeck.twitter.com");
         }
 
         private void AddTab(string url, int? insertIndex = null)
