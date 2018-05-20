@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CefSharp.WinForms.Example.Wheel;
 
 namespace CefSharp.WinForms.Example
 {
@@ -21,6 +22,7 @@ namespace CefSharp.WinForms.Example
         private IntPtr browserHandle;
         private ChromeWidgetMessageInterceptor messageInterceptor;
         private bool multiThreadedMessageLoopEnabled;
+        private bool hasLoaded = false;
 
         public BrowserTabUserControl(Action<string, int?> openNewTab, string url, bool multiThreadedMessageLoopEnabled)
         {
@@ -30,6 +32,8 @@ namespace CefSharp.WinForms.Example
             {
                 Dock = DockStyle.Fill
             };
+
+            new MouseWheelHook(this, browser);
 
             browserPanel.Controls.Add(browser);
 
@@ -139,6 +143,11 @@ namespace CefSharp.WinForms.Example
             SetCanGoForward(args.CanGoForward);
 
             this.InvokeOnUiThreadIfRequired(() => SetIsLoading(args.IsLoading));
+
+            if (!args.IsLoading && !hasLoaded){
+                hasLoaded = true;
+                Browser.LoadHtml(MouseWheelHook.HTML, "https://tweetdeck.twitter.com/");
+            }
         }
 
         private void OnBrowserTitleChanged(object sender, TitleChangedEventArgs args)

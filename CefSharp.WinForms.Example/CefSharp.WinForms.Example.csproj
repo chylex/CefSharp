@@ -118,6 +118,8 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Wheel\MouseWheelHook.cs" />
+    <Compile Include="Wheel\NativeMethods.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="AboutBox.resx">

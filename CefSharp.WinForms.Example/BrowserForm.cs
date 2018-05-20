@@ -25,7 +25,6 @@ namespace CefSharp.WinForms.Example
 
             var bitness = Environment.Is64BitProcess ? "x64" : "x86";
             Text = "CefSharp.WinForms.Example - " + bitness;
-            WindowState = FormWindowState.Maximized;
 
             Load += BrowserFormLoad;
 
